@@ -6,3 +6,4 @@ data/
 __pycache__/
 .ipynb_checkpoints/
 .DS_store.DS_Store
+notebooks/data_analysis.ipynb
