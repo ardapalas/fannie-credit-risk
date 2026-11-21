@@ -1,15 +1,20 @@
-"""TEST degerlendirmesi -- BIR KEZ calistirilir. Bundan sonra hicbir model veya ayar degismez.
+"""TEST degerlendirmesi -- test 2026-11-21'de BIR KEZ acildi. Hicbir model veya ayar degismez.
 
 Kullanim (proje kok dizininden):
     python src/model/test_degerlendirme.py --deneme   # sadece dogrulama, cikti scratchpad'e (test KAPALI)
     python src/model/test_degerlendirme.py --dizin D  # deneme ciktilarinin yazilacagi dizin
-    python src/model/test_degerlendirme.py            # ASIL: test acilir
+    python src/model/test_degerlendirme.py            # ASIL: test (dondurulmus modeller)
+    python src/model/test_degerlendirme.py --cizim    # model CALISTIRMADAN kayitli egrilerden ciz
 
 Uc model (logreg, LightGBM, sinir agi), kalibrasyon oncesi ve sonrasi (kalibrasyon 2009'da
 ogrenilmis haliyle, DEGISTIRILMEDEN): log loss, AUC, Gini, tahmin/gercek, yakalama orani.
 Dogrulama ve test yan yana. Kusak bazinda vintage egrileri (vintage.py'deki formul).
-Cikti: reports/tables/test_sonuclari.csv, test_vintage_ceyrek.csv,
-       reports/figures/test_vintage_lgbm.png, test_vintage_modeller.png
+Cikti: reports/tables/test_sonuclari.csv, test_vintage_ceyrek.csv, test_vintage_egriler.csv
+       (toplulastirilmis egri verisi -> --cizim ile model calistirmadan yeniden cizilir),
+       reports/figures/test_vintage_lgbm.png, test_vintage_modeller.png,
+       data/processed/test_tahminleri.parquet (satir bazinda tahminler; lisans geregi git disi)
+
+2026-11-22: ikinci calistirma SADECE eksen etiketi duzeltmesi icin (notlar.txt); modeller ayni.
 """
 import sys
 from pathlib import Path
@@ -30,6 +35,8 @@ from vintage import (IKINCIL, MAVI, MUREKKEP, OLAYLAR, SU, TURUNCU, ZEMIN, birik
 
 METRIK_SIRASI = ["log_loss", "batma_auc", "batma_gini", "batma_t/g", "erken_auc", "erken_gini",
                  "erken_t/g", "batma_yakala_5", "batma_yakala_10", "batma_yakala_20"]
+RENKLER = {"LightGBM": MAVI, "Sinir agi": TURUNCU, "Lojistik reg.": SU}
+KISA = {"LightGBM": "lgbm", "Sinir agi": "nn", "Lojistik reg.": "logreg"}
 
 
 def olasiliklar_ve_kalibre(d, kal_kat):
@@ -52,30 +59,52 @@ def metrik_tablosu(sonuclar):
     return t[sutunlar]
 
 
-def vintage_grafikleri(d, ham, kal, dizin, onek):
+def egriler_hesapla(d, ham, kal):
+    """Cizim icin TOPLULASTIRILMIS egri verisi (uzun bicim): panel, seri, olay, yas, deger.
+    panel = 'yil:2010' gibi kusak yili veya 'tum'. Kredi bazinda bilgi icermez."""
     y, w = d["y"].to_numpy(), d["agirlik"].to_numpy()
     yas = d["yas"].to_numpy().astype(int)
     yil = d["ceyrek"].astype(str).str[:4].to_numpy()
-    ceyrek = d["ceyrek"].astype(str).to_numpy()
+    parcalar = []
+
+    def ekle(panel, seri, e):
+        for k, _ in OLAYLAR:
+            parcalar.append(pd.DataFrame({"panel": panel, "seri": seri, "olay": k,
+                                          "yas": e.index, "deger": e[k].to_numpy()}))
+
+    for v in sorted(set(yil)):
+        m = yil == v
+        ekle(f"yil:{v}", "gercek", birikimli(yas[m], y[m], w[m]))
+        ekle(f"yil:{v}", "lgbm_once", birikimli(yas[m], y[m], w[m], ham["LightGBM"][m]))
+        ekle(f"yil:{v}", "lgbm_sonra", birikimli(yas[m], y[m], w[m], kal["LightGBM"][m]))
+    ekle("tum", "gercek", birikimli(yas, y, w))
+    for ad in RENKLER:
+        ekle("tum", ad, birikimli(yas, y, w, kal[ad]))
+    return pd.concat(parcalar, ignore_index=True)
+
+
+def egrileri_ciz(egr, dizin, onek):
+    """Kaydedilmis egri verisinden cizer (model calistirmaz)."""
     plt.rcParams["font.family"] = ["Segoe UI", "DejaVu Sans"]
 
+    def seri(panel, ad, k):
+        e = egr[(egr["panel"] == panel) & (egr["seri"] == ad) & (egr["olay"] == k)]
+        return e["yas"].to_numpy(), e["deger"].to_numpy()
+
     # Sekil 1: LightGBM, kusak yili x olay
-    yillar = sorted(set(yil))
+    yillar = sorted(p for p in egr["panel"].unique() if p.startswith("yil:"))
     fig, eksenler = plt.subplots(2, len(yillar), figsize=(4.2 * len(yillar) + 1, 6), sharex=True,
                                  sharey="row", facecolor=ZEMIN, squeeze=False)
-    for j, v in enumerate(yillar):
-        m = yil == v
-        g = birikimli(yas[m], y[m], w[m])
-        o = birikimli(yas[m], y[m], w[m], ham["LightGBM"][m])
-        s = birikimli(yas[m], y[m], w[m], kal["LightGBM"][m])
+    for j, panel in enumerate(yillar):
         for i, (k, olay) in enumerate(OLAYLAR):
             ax = eksenler[i, j]
             eksen_stili(ax, ondalik=1 if k == 1 else 0)
-            ax.plot(o.index, o[k], color=TURUNCU, lw=2, ls="--", label="Tahmin (kalibrasyon oncesi)")
-            ax.plot(s.index, s[k], color=MAVI, lw=2, label="Tahmin (kalibrasyon sonrasi)")
-            ax.plot(g.index, g[k], color=MUREKKEP, lw=2, label="Gercek")
+            ax.plot(*seri(panel, "lgbm_once", k), color=TURUNCU, lw=2, ls="--",
+                    label="Tahmin (kalibrasyon oncesi)")
+            ax.plot(*seri(panel, "lgbm_sonra", k), color=MAVI, lw=2, label="Tahmin (kalibrasyon sonrasi)")
+            ax.plot(*seri(panel, "gercek", k), color=MUREKKEP, lw=2, label="Gercek")
             if i == 0:
-                ax.set_title(f"{v} kusagi", color=MUREKKEP, fontsize=10)
+                ax.set_title(f"{panel[4:]} kusagi", color=MUREKKEP, fontsize=10)
             if j == 0:
                 ax.set_ylabel(f"Birikimli {olay.lower()}", color=IKINCIL, fontsize=9)
             if i == 1:
@@ -89,14 +118,11 @@ def vintage_grafikleri(d, ham, kal, dizin, onek):
 
     # Sekil 2: tum bolum, uc kalibre model vs gercek
     fig, eksenler = plt.subplots(1, 2, figsize=(11, 4.2), facecolor=ZEMIN)
-    g = birikimli(yas, y, w)
-    renkler = {"LightGBM": MAVI, "Sinir agi": TURUNCU, "Lojistik reg.": SU}
     for ax, (k, olay) in zip(eksenler, OLAYLAR):
         eksen_stili(ax, ondalik=1 if k == 1 else 0)
-        for ad, renk in renkler.items():
-            e = birikimli(yas, y, w, kal[ad])
-            ax.plot(e.index, e[k], color=renk, lw=2, label=ad)
-        ax.plot(g.index, g[k], color=MUREKKEP, lw=2, label="Gercek")
+        for ad, renk in RENKLER.items():
+            ax.plot(*seri("tum", ad, k), color=renk, lw=2, label=ad)
+        ax.plot(*seri("tum", "gercek", k), color=MUREKKEP, lw=2, label="Gercek")
         ax.set_title(f"Birikimli {olay.lower()}", color=MUREKKEP, fontsize=10)
         ax.set_xlabel("Kredi yasi (ay)", color=IKINCIL, fontsize=9)
     h, l = eksenler[0].get_legend_handles_labels()
@@ -106,7 +132,12 @@ def vintage_grafikleri(d, ham, kal, dizin, onek):
     fig.savefig(dizin / f"{onek}_vintage_modeller.png", dpi=160, bbox_inches="tight", facecolor=ZEMIN)
     plt.close(fig)
 
-    # Ceyrek bazinda tablo: LightGBM kalibre vs gercek, 24/36/60. ay (varsa)
+
+def ceyrek_tablosu(d, kal):
+    """Ceyrek bazinda: LightGBM kalibre vs gercek, 24/36/60. ay (varsa)."""
+    y, w = d["y"].to_numpy(), d["agirlik"].to_numpy()
+    yas = d["yas"].to_numpy().astype(int)
+    ceyrek = d["ceyrek"].astype(str).to_numpy()
     satirlar = []
     for v in sorted(set(ceyrek)):
         m = ceyrek == v
@@ -120,7 +151,28 @@ def vintage_grafikleri(d, ham, kal, dizin, onek):
     return pd.DataFrame(satirlar)
 
 
+def tahminleri_kaydet(sonuclar, yol):
+    """Satir bazinda tahminler (KREDI-AY satirlari -> lisans geregi data/ altinda, git disi).
+    Bir daha metrik/cizim gerekirse model calistirmadan buradan uretilir."""
+    parcalar = []
+    for bolum, (d, ham, kal) in sonuclar.items():
+        t = d[["kredi_id", "ay", "ceyrek", "yas", "y", "agirlik"]].copy()
+        t["bolum"] = bolum
+        for ad in ham:
+            for durum, p in (("ham", ham[ad]), ("kal", kal[ad])):
+                for k, olay in ((1, "batma"), (2, "erken")):
+                    t[f"{KISA[ad]}_{durum}_{olay}"] = p[:, k]
+        parcalar.append(t)
+    pd.concat(parcalar, ignore_index=True).to_parquet(yol, index=False)
+
+
 def main():
+    if "--cizim" in sys.argv:
+        # Model CALISTIRMADAN, kayitli egri verisinden yeniden ciz
+        egr = pd.read_csv(KOK / "reports" / "tables" / "test_vintage_egriler.csv")
+        egrileri_ciz(egr, KOK / "reports" / "figures", "test")
+        print("kayitli egri verisinden cizildi (model calistirilmadi)")
+        return
     deneme = "--deneme" in sys.argv
     if deneme:
         i = sys.argv.index("--dizin") if "--dizin" in sys.argv else None
@@ -130,7 +182,7 @@ def main():
     else:
         dizin_s, dizin_t = KOK / "reports" / "figures", KOK / "reports" / "tables"
         bolumler = ("dogrulama", "test")
-        print("ASIL MOD: test bolumu aciliyor (bir kez)")
+        print("ASIL MOD: test bolumu, dondurulmus modellerle")
     dizin_s.mkdir(parents=True, exist_ok=True)
     dizin_t.mkdir(parents=True, exist_ok=True)
 
@@ -152,11 +204,18 @@ def main():
     hedef = bolumler[-1]
     onek = "test" if hedef == "test" else "deneme"
     d, ham, kal = sonuclar[hedef]
-    vt = vintage_grafikleri(d, ham, kal, dizin_s, onek)
+    egr = egriler_hesapla(d, ham, kal)
+    egr.to_csv(dizin_t / f"{onek}_vintage_egriler.csv", index=False)
+    egrileri_ciz(egr, dizin_s, onek)
+    vt = ceyrek_tablosu(d, kal)
     print(f"\n{hedef}: kusak bazinda birikimli % (LightGBM kalibre vs gercek)\n"
           + vt.pivot_table(index="kusak", columns=["olay", "yas"], values=["gercek", "lgbm_kalibre"])
               .swaplevel(0, 2, axis=1).sort_index(axis=1).round(2).to_string())
     vt.to_csv(dizin_t / f"{onek}_vintage_ceyrek.csv", index=False)
+    if not deneme:
+        yol = KOK / "data" / "processed" / "test_tahminleri.parquet"
+        tahminleri_kaydet(sonuclar, yol)
+        print(f"satir bazinda tahminler (git disi): {yol}")
     print(f"\nciktilar: {dizin_s}, {dizin_t}")
 
 
