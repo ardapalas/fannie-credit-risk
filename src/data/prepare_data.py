@@ -16,7 +16,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
-KOK = Path(__file__).resolve().parents[1]
+KOK = Path(__file__).resolve().parents[2]
 HAM = KOK / "data" / "raw"
 ISLENMIS = KOK / "data" / "processed"
 SOZLUK = HAM / "crt-file-layout-and-glossary.xlsx"

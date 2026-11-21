@@ -1,9 +1,17 @@
 .venv/
-data/
+/data/
+/models/
+/notebooks/
+/reports/figures/yerel/
 *.csv
+# Toplulastirilmis sonuc tablolari paylasilabilir (kredi bazinda satir YOK; eklemeden once kontrol et)
+!reports/tables/*.csv
 *.parquet
 .env
 __pycache__/
 .ipynb_checkpoints/
 .DS_Store
-notebooks/data_analysis.ipynb
+notlar.txt
+rapor.txt
+CLAUDE.md
+src/codes.md
