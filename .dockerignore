@@ -1,0 +1,19 @@
+# BEYAZ LISTE: once her sey disarida, sonra sadece API'nin ihtiyaci olanlar iceri.
+# Boylece data/ (Fannie verisi), .env, .venv/, .git/, notebooks/, reports/, models/, src/ ...
+# hicbiri imaja/build baglamina giremez; ileride eklenecek yeni klasorler de otomatik disarida kalir.
+*
+!requirements-api.txt
+!api/
+
+# Iceri alinan api/ icinden de disarida kalacaklar
+api/tests/
+**/__pycache__/
+**/*.pyc
+
+# Ek guvence: bu dosyalar nerede olursa olsun ASLA imaja girmez (lisans / sifreler)
+**/.env
+**/.env.*
+**/*.parquet
+**/*.db
+**/*.csv
+**/*.joblib

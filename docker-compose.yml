@@ -1,5 +1,6 @@
-# PostgreSQL (sadece toplulastirilmis veri). Kullanici/sifre .env'den okunur, veri "pgdata" volume'unda.
-#   docker compose up -d
+# PostgreSQL (sadece toplulastirilmis veri) + FastAPI. Kullanici/sifre .env'den okunur,
+# veri "pgdata" volume'unda.
+#   docker compose up -d --build
 services:
   db:
     image: postgres:16
@@ -17,6 +18,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  api:
+    build: .
+    image: kredi-riski-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kredi_riski}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

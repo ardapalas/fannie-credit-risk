@@ -81,6 +81,34 @@ Swagger arayüzü: <http://localhost:8000/docs>
 | `GET /model/metrics?bolum=` | Doğrulama ve test metrikleri |
 | `GET /scenarios?issizlik=&ev_fiyati=&faiz=` | Izgaradaki en yakın stres senaryosu; aralık dışı değer 422 |
 
+### Docker ile çalıştırma
+
+Veritabanı ve API birlikte konteynerde çalışır. `.env` dosyasında `POSTGRES_*` değerleri tanımlı
+olmalı (bkz. `.env.example`); API'nin `DATABASE_URL`'si compose içinde bu değerlerden kurulur.
+
+```powershell
+docker compose up -d --build     # db + api; api, db sağlıklı olunca başlar
+docker compose ps                # durum
+docker compose logs -f api       # API logları
+docker compose down              # durdur (veri "pgdata" volume'unda kalır)
+```
+
+API: <http://localhost:8000/docs>. Veritabanı konteynerde boşsa tabloları host'tan doldurun
+(`.env`'deki `DATABASE_URL` `localhost`'u gösterir, compose 5432 portunu dışarı açar):
+
+```powershell
+python src/export/statik_export.py
+python src/export/senaryo_izgara.py     # veya SQLite'tan: python src/export/postgrese_kopyala.py
+```
+
+- İmaja sadece `api/` ve `requirements-api.txt` girer (`.dockerignore` beyaz liste). Fannie verisi,
+  `.env`, `models/`, notebook'lar ve raporlar imajda yoktur.
+- `requirements-api.txt` sadece API'nin ve model yüklemenin ihtiyacı olan paketleri içerir (imaj
+  ~740 MB; `requirements.txt` ile ~3 GB). Sürümler `requirements.txt` ile birebir aynıdır: dondurulmuş
+  modeller aynı lightgbm / scikit-learn / pandas sürümleriyle yüklenmelidir.
+- `models/` konteynere **salt okunur** volume olarak bağlanır (`/app/models`); modeller dondurulmuştur.
+- Konteyner root olmayan `uygulama` kullanıcısıyla çalışır.
+
 ### Testler
 
 ```powershell

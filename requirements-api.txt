@@ -1,0 +1,40 @@
+# API imaji icin bagimliliklar (Dockerfile bunu kurar). Surumler requirements.txt ile BIREBIR ayni
+# olmali: dondurulmus modeller (models/*.joblib) ayni lightgbm / scikit-learn / pandas / numpy
+# surumleriyle egitildi; farkli surum joblib yuklemesini bozabilir.
+# Gelistirme ortami (notebook, shap, xgboost, duckdb, matplotlib ...) icin: requirements.txt
+
+# Web + veritabani
+fastapi==0.165.0
+annotated-doc==0.0.7
+opentelemetry-api==1.45.2
+starlette==1.10.0
+uvicorn==0.54.0
+click==8.5.1
+h11==0.16.0
+anyio==4.16.0
+idna==3.20
+pydantic==2.14.4
+pydantic_core==2.50.5
+pydantic-settings==2.16.3
+python-dotenv==1.2.4
+annotated-types==0.8.0
+typing-inspection==0.4.5
+typing_extensions==4.16.0
+SQLAlchemy==2.1.9
+psycopg==3.3.9
+psycopg-binary==3.3.9
+tzdata==2026.4
+
+# Model yukleme (4. adim: POST /loans/evaluate). SHAP icin LightGBM'in pred_contrib'i kullanilir.
+lightgbm==4.7.0
+scikit-learn==1.9.1
+scipy==1.17.1
+numpy==2.4.6
+pandas==2.3.3
+joblib==1.6.0
+cloudpickle==3.1.2
+narwhals==2.26.0
+threadpoolctl==3.7.0
+python-dateutil==2.9.0.post0
+pytz==2026.4
+six==1.17.0
