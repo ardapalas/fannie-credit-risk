@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# Proje kokunden `pytest` -> api paketi bulunur; testler sentetik veriyle calisir (gercek veri gerekmez)
+pythonpath = ["."]
+testpaths = ["api/tests"]
