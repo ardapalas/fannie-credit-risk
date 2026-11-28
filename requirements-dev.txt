@@ -1,0 +1,7 @@
+# SADECE GELISTIRME ARACLARI (API imajina girmez, model/analiz icin gerekmez).
+# Kurulum:  pip install -r requirements-dev.txt  &&  python -m playwright install chromium
+-r requirements.txt
+
+# Arayuz ekran goruntuleri / tarayici kontrolu (frontend)
+playwright==1.65.2
+greenlet==3.5.6

@@ -8,6 +8,16 @@ Nihai model: kalibre LightGBM (etiket `model-v1`, dondurulmuş).
 > model dosyaları ve kredi bazında hiçbir kayıt yoktur; sadece kod ve toplulaştırılmış sonuçlar
 > (`reports/`) bulunur. Kodu çalıştırmak için veriyi Fannie Mae'den kendiniz indirmeniz gerekir.
 
+## Arayüz
+
+| Genel bakış | Kuşaklar |
+|---|---|
+| ![Genel bakış: temel sayılar ve model karşılaştırma tablosu](docs/screenshots/genel-bakis.png) | ![Kuşaklar: kuşak bazında battı oranı ve birikimli eğriler](docs/screenshots/kusaklar.png) |
+| **Eyalet haritası** | **Senaryo analizi** |
+| ![Eyalet haritası: 2007 kredilerinin eyalet bazında battı oranı](docs/screenshots/eyalet-haritasi.png) | ![Senaryo analizi: makro şoklar altında birikimli batma ve erken kapanış](docs/screenshots/senaryo-analizi.png) |
+
+Arayüz yalnızca toplulaştırılmış veri gösterir. Çalıştırma adımları: [Arayüz (React)](#arayüz-react).
+
 ## Kurulum
 
 ```powershell
@@ -117,10 +127,47 @@ python -m pytest
 
 Testler bellek içi SQLite ve sentetik veriyle çalışır; gerçek veri gerektirmez.
 
+## Arayüz (React)
+
+`frontend/` klasöründe Vite + React + TypeScript. Grafikler Recharts, ABD haritası react-simple-maps +
+us-atlas (harita verisi npm paketinden, dış URL yok). Arayüz yalnızca API'nin toplulaştırılmış verisini
+gösterir; açık ve koyu tema, telefon genişliği desteklenir.
+
+Gereken: Node.js (LTS) ve çalışan API (`docker compose up -d` ya da `uvicorn api.main:app`).
+
+```powershell
+cd frontend
+npm install                 # sürümler package-lock.json'da sabit
+npm run dev                 # http://localhost:5173
+npm run build               # tip kontrolü + üretim derlemesi (dist/)
+```
+
+API adresi `VITE_API_URL` ortam değişkeninden okunur (varsayılan `http://localhost:8000`); değiştirmek için
+`frontend/.env.example`'ı `frontend/.env.local` olarak kopyalayın. API'nin CORS ayarı `localhost:5173`'e
+izin verir.
+
+Sayfalar: **Genel bakış** (temel sayılar, model karşılaştırması), **Kuşaklar** (kuşak battı oranları,
+en fazla 3 kuşağın birikimli eğrileri), **Eyalet haritası** (yıl seçici; yetersiz veri taralı),
+**Senaryo analizi** (ızgaraya kilitli kaydırıcılar, baz senaryoyla karşılaştırma).
+
+### Ekran görüntüleri (geliştirme aracı)
+
+Playwright yalnızca geliştirme aracıdır; API imajına ve `requirements.txt`'ye girmez:
+
+```powershell
+pip install -r requirements-dev.txt
+python -m playwright install chromium
+python frontend/scripts/ekran_goruntusu.py CIKTI_DIZINI   # API ve npm run dev çalışıyor olmalı
+```
+
+Her sayfayı açık/koyu tema × masaüstü/telefon genişliğinde, ayrıca "API kapalı" durumunu çeker ve
+tarayıcı konsol hatalarını raporlar.
+
 ## Proje yapısı
 
 - `src/data/` — veri hazırlama (Fannie Mae CSV → kredi-ay tablosu, FRED makro verisi)
 - `src/model/` — modeller, kalibrasyon, değerlendirme, SHAP, stres testi
 - `src/export/` — toplulaştırılmış sonuçları veritabanına yazan scriptler
 - `api/` — FastAPI backend (`rest` → `service` → `integration` katmanları)
+- `frontend/` — React arayüzü (Vite + TypeScript)
 - `reports/` — toplulaştırılmış şekil ve tablolar
